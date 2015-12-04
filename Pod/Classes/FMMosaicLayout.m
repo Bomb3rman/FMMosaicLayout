@@ -26,6 +26,7 @@
 #import "FMMosaicLayout.h"
 
 static const NSInteger kFMDefaultNumberOfColumnsInSection = 2;
+static const CGFloat kFMPanoramaCellHeight = 0.7;
 static const FMMosaicCellSize kFMDefaultCellSize = FMMosaicCellSizeSmall;
 static const FMMosaicCellSize kFMDefaultHeaderFooterHeight = 0.0;
 static const BOOL kFMDefaultHeaderShouldOverlayContent = NO;
@@ -124,15 +125,20 @@ static const BOOL kFMDefaultFooterShouldOverlayContent = NO;
         }
         
         // Handle remaining cells that didn't fill the buffer
-        if (smallMosaicCellIndexPathsBuffer.count > 0) {
+        while (smallMosaicCellIndexPathsBuffer.count > 0 ) {
             NSInteger indexOfShortestColumn = [self indexOfShortestColumnInSection:sectionIndex];
             UICollectionViewLayoutAttributes *layoutAttributes = [self addSmallMosaicLayoutAttributesForIndexPath:smallMosaicCellIndexPathsBuffer[0]
                                                                                                          inColumn:indexOfShortestColumn bufferIndex:0];
+            if (smallMosaicCellIndexPathsBuffer.count > 1) {
+                [self addSmallMosaicLayoutAttributesForIndexPath:smallMosaicCellIndexPathsBuffer[1]
+                                                        inColumn:indexOfShortestColumn bufferIndex:1];
+                [smallMosaicCellIndexPathsBuffer removeObjectAtIndex:0];
+            }
             
             // Add to small cells to shortest column, and recalculate column height now that they've been added
             CGFloat columnHeight = [self.columnHeightsPerSection[sectionIndex][indexOfShortestColumn] floatValue];
             self.columnHeightsPerSection[sectionIndex][indexOfShortestColumn] = @(columnHeight + layoutAttributes.frame.size.height + interitemSpacing);
-            [smallMosaicCellIndexPathsBuffer removeAllObjects];
+            [smallMosaicCellIndexPathsBuffer removeObjectAtIndex:0];
         }
         
         // Adds footer view
@@ -304,6 +310,9 @@ static const BOOL kFMDefaultFooterShouldOverlayContent = NO;
     
     CGFloat cellHeight = [self cellHeightForMosaicSize:mosaicCellSize section:sectionIndex];
     CGFloat cellWidth = mosaicCellSize != FMMosaicCellSizePanorama ? cellHeight : cellHeight * 2;
+    if (mosaicCellSize == FMMosaicCellSizePanorama) {
+        cellHeight *= kFMPanoramaCellHeight;
+    }
     CGFloat columnHeight = [self.columnHeightsPerSection[sectionIndex][column] floatValue];
     
     CGFloat originX = mosaicCellSize != FMMosaicCellSizePanorama ? column * [self columnWidthInSection:sectionIndex] : 0;
