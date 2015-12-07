@@ -31,6 +31,10 @@ typedef NS_ENUM(NSUInteger, FMMosaicCellSize) {
     FMMosaicCellSizePanorama
 };
 
+@interface FMMosaicLayoutAttributes : UICollectionViewLayoutAttributes
+@property (nonatomic) FMMosaicCellSize mosaicType;
+@end
+
 @protocol FMMosaicLayoutDelegate <UICollectionViewDelegate>
 
 - (NSInteger)collectionView:(UICollectionView *)collectionView layout:(FMMosaicLayout *)collectionViewLayout numberOfColumnsInSection:(NSInteger)section;

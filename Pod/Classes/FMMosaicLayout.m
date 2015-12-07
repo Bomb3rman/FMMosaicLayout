@@ -24,6 +24,7 @@
 // THE SOFTWARE.
 
 #import "FMMosaicLayout.h"
+#import <objc/runtime.h>
 
 static const NSInteger kFMDefaultNumberOfColumnsInSection = 2;
 static const CGFloat kFMPanoramaCellHeight = 0.7;
@@ -31,6 +32,44 @@ static const FMMosaicCellSize kFMDefaultCellSize = FMMosaicCellSizeSmall;
 static const FMMosaicCellSize kFMDefaultHeaderFooterHeight = 0.0;
 static const BOOL kFMDefaultHeaderShouldOverlayContent = NO;
 static const BOOL kFMDefaultFooterShouldOverlayContent = NO;
+
+
+@interface FMMosaicLayoutAttributes() {
+    FMMosaicCellSize cellType;
+}
+
+@end
+@implementation FMMosaicLayoutAttributes
+
+- (FMMosaicCellSize) mosaicType {
+    return cellType;
+}
+
+- (void)setMosaicType:(FMMosaicCellSize)value {
+    cellType = value;
+}
+
+- (BOOL)isEqual:(id)other {
+    if (other == self)
+        return YES;
+    if ([other isKindOfClass:[self class]])
+        return NO;
+    if (((FMMosaicLayoutAttributes*)other)->cellType == self->cellType) {
+        return [super isEqual:other];
+    } else {
+        return NO;
+    }
+}
+
+-(id)copyWithZone:(NSZone *)zone
+{
+    FMMosaicLayoutAttributes *another = [super copyWithZone:zone];
+    another->cellType = cellType;
+    
+    return another;
+}
+@end
+
 
 @interface FMMosaicLayout ()
 
@@ -84,13 +123,13 @@ static const BOOL kFMDefaultFooterShouldOverlayContent = NO;
             NSInteger indexOfShortestColumn = [self indexOfShortestColumnInSection:sectionIndex]; // must be recalculated every time a new cell is added
             
             if (mosaicCellSize == FMMosaicCellSizePanorama) {
-                UICollectionViewLayoutAttributes *layoutAttributes = [self addPanoramaMosaicLayoutAttributesForIndexPath:cellIndexPath];
+                FMMosaicLayoutAttributes *layoutAttributes = [self addPanoramaMosaicLayoutAttributesForIndexPath:cellIndexPath];
                 CGFloat columnHeight = [self.columnHeightsPerSection[sectionIndex][0] floatValue];
                 self.columnHeightsPerSection[sectionIndex][0] = @(columnHeight + layoutAttributes.frame.size.height + interitemSpacing);
                 self.columnHeightsPerSection[sectionIndex][1] = @(columnHeight + layoutAttributes.frame.size.height + interitemSpacing);
             } else if (mosaicCellSize == FMMosaicCellSizeBig) {
                 // Add big cell to shortest column, calculate layout attributes, and recalculate column height now that it's been added
-                UICollectionViewLayoutAttributes *layoutAttributes = [self addBigMosaicLayoutAttributesForIndexPath:cellIndexPath inColumn:indexOfShortestColumn];
+                FMMosaicLayoutAttributes *layoutAttributes = [self addBigMosaicLayoutAttributesForIndexPath:cellIndexPath inColumn:indexOfShortestColumn];
                 CGFloat columnHeight = [self.columnHeightsPerSection[sectionIndex][indexOfShortestColumn] floatValue];
                 self.columnHeightsPerSection[sectionIndex][indexOfShortestColumn] = @(columnHeight + layoutAttributes.frame.size.height + interitemSpacing);
                 
@@ -100,7 +139,7 @@ static const BOOL kFMDefaultFooterShouldOverlayContent = NO;
                 // Wait until small cell buffer is full (widths add up to one big cell), then add small cells to column heights array and layout attributes
                 if(smallMosaicCellIndexPathsBuffer.count >= 4) {
                     if ([self.columnHeightsPerSection[sectionIndex][0] floatValue] <= [self.columnHeightsPerSection[sectionIndex][1] floatValue]) {
-                        UICollectionViewLayoutAttributes *layoutAttributes =
+                        FMMosaicLayoutAttributes *layoutAttributes =
                         [self addSmallMosaicLayoutAttributesForIndexPath:smallMosaicCellIndexPathsBuffer[0] inColumn:0 bufferIndex:0];
                         [self addSmallMosaicLayoutAttributesForIndexPath:smallMosaicCellIndexPathsBuffer[1] inColumn:0 bufferIndex:1];
                         // Add to small cells to shortest column, and recalculate column height now that they've been added
@@ -111,7 +150,7 @@ static const BOOL kFMDefaultFooterShouldOverlayContent = NO;
                     }
                     
                     if ([self.columnHeightsPerSection[sectionIndex][0] floatValue] > [self.columnHeightsPerSection[sectionIndex][1] floatValue]) {
-                        UICollectionViewLayoutAttributes *layoutAttributes =
+                        FMMosaicLayoutAttributes *layoutAttributes =
                         [self addSmallMosaicLayoutAttributesForIndexPath:smallMosaicCellIndexPathsBuffer[0] inColumn:1 bufferIndex:0];
                         [self addSmallMosaicLayoutAttributesForIndexPath:smallMosaicCellIndexPathsBuffer[1] inColumn:1 bufferIndex:1];
                         // Add to small cells to shortest column, and recalculate column height now that they've been added
@@ -127,8 +166,8 @@ static const BOOL kFMDefaultFooterShouldOverlayContent = NO;
         // Handle remaining cells that didn't fill the buffer
         while (smallMosaicCellIndexPathsBuffer.count > 0 ) {
             NSInteger indexOfShortestColumn = [self indexOfShortestColumnInSection:sectionIndex];
-            UICollectionViewLayoutAttributes *layoutAttributes = [self addSmallMosaicLayoutAttributesForIndexPath:smallMosaicCellIndexPathsBuffer[0]
-                                                                                                         inColumn:indexOfShortestColumn bufferIndex:0];
+            FMMosaicLayoutAttributes *layoutAttributes = [self addSmallMosaicLayoutAttributesForIndexPath:smallMosaicCellIndexPathsBuffer[0]
+                                                                                                 inColumn:indexOfShortestColumn bufferIndex:0];
             if (smallMosaicCellIndexPathsBuffer.count > 1) {
                 [self addSmallMosaicLayoutAttributesForIndexPath:smallMosaicCellIndexPathsBuffer[1]
                                                         inColumn:indexOfShortestColumn bufferIndex:1];
@@ -160,14 +199,14 @@ static const BOOL kFMDefaultFooterShouldOverlayContent = NO;
     NSMutableArray *attributesInRect = [[NSMutableArray alloc] initWithCapacity:self.cellLayoutAttributes.count];
     
     // Cells
-    [self.cellLayoutAttributes enumerateKeysAndObjectsUsingBlock:^(NSIndexPath *indexPath, UICollectionViewLayoutAttributes *attributes, BOOL *stop) {
+    [self.cellLayoutAttributes enumerateKeysAndObjectsUsingBlock:^(NSIndexPath *indexPath, FMMosaicLayoutAttributes *attributes, BOOL *stop) {
         if(CGRectIntersectsRect(rect, attributes.frame)){
             [attributesInRect addObject:attributes];
         }
     }];
     
     // Supplementary views
-    [self.supplementaryLayoutAttributes enumerateKeysAndObjectsUsingBlock:^(NSIndexPath *indexPath, UICollectionViewLayoutAttributes *attributes, BOOL *stop) {
+    [self.supplementaryLayoutAttributes enumerateKeysAndObjectsUsingBlock:^(NSIndexPath *indexPath, FMMosaicLayoutAttributes *attributes, BOOL *stop) {
         if(CGRectIntersectsRect(rect, attributes.frame)){
             [attributesInRect addObject:attributes];
         }
@@ -176,11 +215,11 @@ static const BOOL kFMDefaultFooterShouldOverlayContent = NO;
     return attributesInRect;
 }
 
-- (UICollectionViewLayoutAttributes *)layoutAttributesForItemAtIndexPath:(NSIndexPath *)indexPath {
+- (FMMosaicLayoutAttributes *)layoutAttributesForItemAtIndexPath:(NSIndexPath *)indexPath {
     return [self.cellLayoutAttributes objectForKey:indexPath];
 }
 
-- (UICollectionViewLayoutAttributes *)layoutAttributesForSupplementaryViewOfKind:(NSString *)elementKind atIndexPath:(NSIndexPath *)indexPath {
+- (FMMosaicLayoutAttributes *)layoutAttributesForSupplementaryViewOfKind:(NSString *)elementKind atIndexPath:(NSIndexPath *)indexPath {
     return [self.supplementaryLayoutAttributes objectForKey:indexPath];
 }
 
@@ -266,9 +305,9 @@ static const BOOL kFMDefaultFooterShouldOverlayContent = NO;
 #pragma mark Layout Attributes Helpers
 
 // Calculates layout attributes for a small cell, adds to layout attributes array and returns it
-- (UICollectionViewLayoutAttributes *)addSmallMosaicLayoutAttributesForIndexPath:(NSIndexPath *)cellIndexPath
-                                                                        inColumn:(NSInteger)column bufferIndex:(NSInteger)bufferIndex {
-    UICollectionViewLayoutAttributes *layoutAttributes = [UICollectionViewLayoutAttributes layoutAttributesForCellWithIndexPath:cellIndexPath];
+- (FMMosaicLayoutAttributes *)addSmallMosaicLayoutAttributesForIndexPath:(NSIndexPath *)cellIndexPath
+                                                                inColumn:(NSInteger)column bufferIndex:(NSInteger)bufferIndex {
+    FMMosaicLayoutAttributes *layoutAttributes = [FMMosaicLayoutAttributes layoutAttributesForCellWithIndexPath:cellIndexPath];
     CGRect frame = [self mosaicCellRectWithSize:FMMosaicCellSizeSmall atIndexPath:cellIndexPath inColumn:column];
     
     // Account for first or second small mosaic cell
@@ -276,6 +315,7 @@ static const BOOL kFMDefaultFooterShouldOverlayContent = NO;
     CGFloat cellWidth = [self cellHeightForMosaicSize:FMMosaicCellSizeSmall section:cellIndexPath.section];
     frame.origin.x += (cellWidth + interitemSpacing) * bufferIndex;
     layoutAttributes.frame = frame;
+    layoutAttributes.mosaicType = FMMosaicCellSizeSmall;
     
     // TODO batch update this
     [self.cellLayoutAttributes setObject:layoutAttributes forKey:cellIndexPath];
@@ -284,10 +324,11 @@ static const BOOL kFMDefaultFooterShouldOverlayContent = NO;
 }
 
 // Calculates layout attributes for a big cell, adds to layout attributes array and returns it
-- (UICollectionViewLayoutAttributes *)addBigMosaicLayoutAttributesForIndexPath:(NSIndexPath *)cellIndexPath inColumn:(NSInteger)column {
-    UICollectionViewLayoutAttributes *layoutAttributes = [UICollectionViewLayoutAttributes layoutAttributesForCellWithIndexPath:cellIndexPath];
+- (FMMosaicLayoutAttributes *)addBigMosaicLayoutAttributesForIndexPath:(NSIndexPath *)cellIndexPath inColumn:(NSInteger)column {
+    FMMosaicLayoutAttributes *layoutAttributes = [FMMosaicLayoutAttributes layoutAttributesForCellWithIndexPath:cellIndexPath];
     CGRect frame = [self mosaicCellRectWithSize:FMMosaicCellSizeBig atIndexPath:cellIndexPath inColumn:column];
     layoutAttributes.frame = frame;
+    layoutAttributes.mosaicType = FMMosaicCellSizeBig;
     
     [self.cellLayoutAttributes setObject:layoutAttributes forKey:cellIndexPath];
     
@@ -295,10 +336,11 @@ static const BOOL kFMDefaultFooterShouldOverlayContent = NO;
 }
 
 // Calculates layout attributes for a pa cell, adds to layout attributes array and returns it
-- (UICollectionViewLayoutAttributes *)addPanoramaMosaicLayoutAttributesForIndexPath:(NSIndexPath *)cellIndexPath{
-    UICollectionViewLayoutAttributes *layoutAttributes = [UICollectionViewLayoutAttributes layoutAttributesForCellWithIndexPath:cellIndexPath];
+- (FMMosaicLayoutAttributes *)addPanoramaMosaicLayoutAttributesForIndexPath:(NSIndexPath *)cellIndexPath{
+    FMMosaicLayoutAttributes *layoutAttributes = [FMMosaicLayoutAttributes layoutAttributesForCellWithIndexPath:cellIndexPath];
     CGRect frame = [self mosaicCellRectWithSize:FMMosaicCellSizePanorama atIndexPath:cellIndexPath inColumn:0];
     layoutAttributes.frame = frame;
+    layoutAttributes.mosaicType = FMMosaicCellSizePanorama;
     
     [self.cellLayoutAttributes setObject:layoutAttributes forKey:cellIndexPath];
     
@@ -327,8 +369,8 @@ static const BOOL kFMDefaultFooterShouldOverlayContent = NO;
     return CGRectMake(originX, originY, cellWidth, cellHeight);
 }
 
-- (UICollectionViewLayoutAttributes *)addLayoutAttributesForSupplementaryViewOfKind:(NSString *)kind indexPath:(NSIndexPath *)indexPath {
-    UICollectionViewLayoutAttributes *layoutAttributes = [UICollectionViewLayoutAttributes layoutAttributesForSupplementaryViewOfKind:kind withIndexPath:indexPath];
+- (FMMosaicLayoutAttributes *)addLayoutAttributesForSupplementaryViewOfKind:(NSString *)kind indexPath:(NSIndexPath *)indexPath {
+    FMMosaicLayoutAttributes *layoutAttributes = [FMMosaicLayoutAttributes layoutAttributesForSupplementaryViewOfKind:kind withIndexPath:indexPath];
     
     UIEdgeInsets sectionInset = [self insetForSectionAtIndex:indexPath.section];
     CGFloat originX = sectionInset.left;
